@@ -40,23 +40,24 @@ func NewZohoSignClient(refreshToken, clientId, secretKey string, refreshTokenVal
 	client.authToken = authToken
 
 	go client.refreshAuthToken(refreshTokenValidMinutes)
+
 	return &client
 }
 
 func (z *ZohoSignClient) refreshAuthToken(timer int) {
 	for {
 		time.Sleep(time.Duration(timer) * time.Minute)
-		log.Info("Refreshing zoho sign access token")
+		log.Info("Refreshing Zoho Sign Access Token")
 		token, err := generateAccessToken(*z)
 		if err != nil {
-			log.Error("Failed to generate access token for zoho")
+			log.Error("Zoho Sign Client ERROR", "Failed to generate new access token", err.Error())
 			return
 		}
 		z.authToken = token
 	}
 }
 
-func (z *ZohoSignClient) CreateTemplateSignRequest(recipientName, email, phoneNumber, countryCode, templateID, actionId, role, notes string, isEmbedded bool) (TemplateSignatureResponse, error) {
+func (z *ZohoSignClient) CreateTemplateSignRequest(recipientName, email, phoneNumber, countryCode, templateId, actionId, role, notes string, isEmbedded bool) (TemplateSignatureResponse, error) {
 	templateAction := TemplateAction{
 		RecipientName:   recipientName,
 		RecipientEmail:  email,
@@ -82,16 +83,15 @@ func (z *ZohoSignClient) CreateTemplateSignRequest(recipientName, email, phoneNu
 		Templates: template,
 	}
 
-	output, err := z.sendTemplateSignRequest(templateID, signRequest)
+	output, err := z.sendTemplateSignRequest(templateId, signRequest)
 	if err != nil {
-		log.Error("Error sending sign request", "err", err)
+		log.Error("Zoho Sign Client ERROR", "Failed to send template sign request", err.Error())
 		return output, err
 	}
 	return output, nil
 }
 
 func (z *ZohoSignClient) sendTemplateSignRequest(templateId string, request SendTemplateSignatureRequest) (TemplateSignatureResponse, error) {
-	log.Info("Sending sign request", "templateId", templateId)
 	data, err := z.post(fmt.Sprintf("/templates/%s/createdocument?is_quicksend=%s", templateId, "true"), request)
 	if err != nil {
 		return TemplateSignatureResponse{}, err
@@ -110,8 +110,6 @@ func (z *ZohoSignClient) post(path string, request any) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	log.Debug("Request Body", string(body))
 
 	r, err := http.NewRequest("POST", fmt.Sprintf("%s%s", baseURL, path), bytes.NewBuffer(body))
 	if err != nil {
@@ -134,9 +132,6 @@ func (z *ZohoSignClient) post(path string, request any) ([]byte, error) {
 	}
 
 	data, _ := io.ReadAll(res.Body)
-
-	log.Debug("Signature Request API Response", string(data))
-
 	return data, nil
 }
 
@@ -162,9 +157,6 @@ func (z *ZohoSignClient) call(path string, method string) ([]byte, error) {
 	}
 
 	data, _ := io.ReadAll(res.Body)
-
-	log.Debug("Signature Request API Response", string(data))
-
 	return data, nil
 }
 
@@ -200,8 +192,9 @@ func (z *ZohoSignClient) CancelSignatureRequest(requestId string) error {
 }
 
 func generateAccessToken(z ZohoSignClient) (string, error) {
-	r, err := http.NewRequest("POST", fmt.Sprintf("https://accounts.zoho.in/oauth/v2/token?refresh_token=%s&client_id=%s&client_secret=%s&grant_type=refresh_token",
-		z.refreshToken, z.clientId, z.secretKey), nil)
+	r, err := http.NewRequest("POST",
+		fmt.Sprintf("https://accounts.zoho.in/oauth/v2/token?refresh_token=%s&client_id=%s&client_secret=%s&grant_type=refresh_token",
+			z.refreshToken, z.clientId, z.secretKey), nil)
 	if err != nil {
 		return "", err
 	}
@@ -219,7 +212,7 @@ func generateAccessToken(z ZohoSignClient) (string, error) {
 	data, _ := io.ReadAll(res.Body)
 
 	if res.StatusCode != http.StatusOK {
-		log.Error("Access token generation failed", "res", string(data))
+		log.Error("Failed to generate access token", "Status Code", res.StatusCode, "Response", string(data))
 		return "", errors.New(res.Status)
 	}
 
