@@ -27,12 +27,12 @@ func main() {
 	log.Infof("Template Signature Request Response: %+v", res)
 
 	// Checking the status of a document
-	status, err := zohoSignClient.CheckDocumentStatus(res.Requests.RequestId)
+	docResponse, err := zohoSignClient.CheckDocumentStatus(res.Requests.RequestId)
 	if err != nil {
 		log.Error(err.Error())
 		return
 	}
-	log.Infof("Document Status: %+v", status)
+	log.Infof("Document Status: %+v", docResponse)
 
 	// Get Embedded Signature URL
 	embeddedSignResponse, err := zohoSignClient.GetEmbeddedSignatureURL(res.Requests.RequestId, res.Requests.Actions[0].ActionId)
