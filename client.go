@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 )
 
 const (
@@ -43,10 +44,19 @@ func NewZohoSignClient(refreshToken, clientId, secretKey string, refreshTokenVal
 }
 
 func (z *ZohoSignClient) refreshAuthToken(timer int) {
-
+	for {
+		time.Sleep(time.Duration(timer) * time.Minute)
+		log.Info("Refreshing zoho sign access token")
+		token, err := generateAccessToken(*z)
+		if err != nil {
+			log.Error("Failed to generate access token for zoho")
+			return
+		}
+		z.authToken = token
+	}
 }
 
-func (z *ZohoSignClient) CreateTemplateSignRequest(recipientName, email, phoneNumber, countryCode, templateID, actionId, role, notes string, isEmbedded bool) (string, string, error) {
+func (z *ZohoSignClient) CreateTemplateSignRequest(recipientName, email, phoneNumber, countryCode, templateID, actionId, role, notes string, isEmbedded bool) (TemplateSignatureResponse, error) {
 	templateAction := TemplateAction{
 		RecipientName:   recipientName,
 		RecipientEmail:  email,
@@ -75,9 +85,9 @@ func (z *ZohoSignClient) CreateTemplateSignRequest(recipientName, email, phoneNu
 	output, err := z.sendTemplateSignRequest(templateID, signRequest)
 	if err != nil {
 		log.Error("Error sending sign request", "err", err)
-		return "", "", errors.New("Error sending sign request")
+		return output, err
 	}
-	return output.Requests.RequestId, output.Requests.Actions[0].ActionId, nil
+	return output, nil
 }
 
 func (z *ZohoSignClient) sendTemplateSignRequest(templateId string, request SendTemplateSignatureRequest) (TemplateSignatureResponse, error) {
@@ -165,7 +175,7 @@ func (z *ZohoSignClient) CheckDocumentStatus(requestId string) (TemplateSignatur
 
 	err = json.Unmarshal(data, &response)
 	if err != nil {
-		return response, errors.New("Failed to fetch document status")
+		return response, err
 	}
 
 	return response, nil
@@ -178,7 +188,7 @@ func (z *ZohoSignClient) GetEmbeddedSignatureURL(requestId, documentActionId str
 
 	err = json.Unmarshal(data, &response)
 	if err != nil {
-		return response, errors.New("Failed to fetch document signed url")
+		return response, err
 	}
 
 	return response, nil
@@ -187,10 +197,6 @@ func (z *ZohoSignClient) GetEmbeddedSignatureURL(requestId, documentActionId str
 func (z *ZohoSignClient) CancelSignatureRequest(requestId string) error {
 	_, err := z.call(fmt.Sprintf("/requests/%s/recall", requestId), "POST")
 	return err
-}
-
-func (z *ZohoSignClient) UpdateAuthToken(token string) {
-	z.authToken = token
 }
 
 func generateAccessToken(z ZohoSignClient) (string, error) {
